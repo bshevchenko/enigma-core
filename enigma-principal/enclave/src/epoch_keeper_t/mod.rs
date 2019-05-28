@@ -3,7 +3,6 @@ use ethereum_types::{H256, U256};
 use sgx_trts::trts::rsgx_read_rand;
 use sgx_types::*;
 use std::{collections::HashMap, path, str, sync::SgxMutex, string::String};
-
 use enigma_crypto::hash::Keccak256;
 use enigma_tools_t::{
     common::{
@@ -19,8 +18,8 @@ use enigma_types::{ContractAddress, Hash256};
 use epoch_keeper_t::epoch_t::{Epoch, EpochMarker, EpochNonce};
 use ocalls_t;
 use rustc_hex::ToHex;
-
 use crate::SIGNING_KEY;
+use crate::auto_ffi::ocall_get_home;
 
 pub mod epoch_t;
 
@@ -34,7 +33,7 @@ lazy_static! {
 
 /// The epoch root path is guaranteed to exist of the enclave was initialized
 fn get_epoch_root_path() -> path::PathBuf {
-    let mut path_buf = ocalls_t::get_home_path().unwrap();
+    let mut path_buf = ocalls_t::get_home_path(ocall_get_home).unwrap();
     path_buf.push(EPOCH_DIR);
     path_buf
 }

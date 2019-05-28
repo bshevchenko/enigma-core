@@ -35,6 +35,9 @@ use crate::{epoch_keeper_t::ecall_set_worker_params_internal, keys_keeper_t::eca
 
 mod epoch_keeper_t;
 mod keys_keeper_t;
+mod auto_ffi;
+
+
 lazy_static! {
     static ref SIGNING_KEY: asymmetric::KeyPair = get_sealed_keys_wrapper();
 }
@@ -49,7 +52,7 @@ pub extern "C" fn ecall_get_signing_address(pubkey: &mut [u8; 20]) { pubkey.copy
 
 fn get_sealed_keys_wrapper() -> asymmetric::KeyPair {
     // Get Home path via Ocall
-    let mut path_buf = ocalls_t::get_home_path().unwrap();
+    let mut path_buf = ocalls_t::get_home_path(auto_ffi::ocall_get_home).unwrap();
     // add the filename to the path: `keypair.sealed`
     path_buf.push("keypair.sealed");
     let sealed_path = path_buf.to_str().unwrap();
@@ -78,10 +81,10 @@ pub unsafe extern "C" fn ecall_set_worker_params(worker_params_rlp: *const u8, w
 
 #[no_mangle]
 pub unsafe extern "C" fn ecall_get_enc_state_keys(msg: *const u8, msg_len: usize,
-                                                  addrs: *const u8, addrs_len: usize, sig: &[u8; 65],
+                                                  addrs: *const ContractAddress, addrs_len: usize, sig: &[u8; 65],
                                                   serialized_ptr: *mut u64, sig_out: &mut [u8; 65]) -> EnclaveReturn {
     let msg_bytes = slice::from_raw_parts(msg, msg_len);
-    let addrs_bytes = slice::from_raw_parts(addrs as *const ContractAddress, addrs_len / mem::size_of::<ContractAddress>()).to_vec();
+    let addrs_bytes = slice::from_raw_parts(addrs, addrs_len / mem::size_of::<ContractAddress>()).to_vec();
     let response = match ecall_get_enc_state_keys_internal(msg_bytes, addrs_bytes, *sig, sig_out) {
         Ok(response) => response,
         Err(err) => {
@@ -90,7 +93,7 @@ pub unsafe extern "C" fn ecall_get_enc_state_keys(msg: *const u8, msg_len: usize
         }
     };
 
-    *serialized_ptr = match ocalls_t::save_to_untrusted_memory(&response) {
+    *serialized_ptr = match ocalls_t::save_to_untrusted_memory(&response, auto_ffi::ocall_save_to_memory) {
         Ok(ptr) => ptr,
         Err(e) => return e.into(),
     };

@@ -4,7 +4,6 @@ use enigma_tools_m::{
 };
 use sgx_trts::trts::rsgx_read_rand;
 use std::{collections::HashMap, path, sync::SgxMutex, vec::Vec, string::String};
-
 use enigma_crypto::{asymmetric::KeyPair, Encryption};
 use enigma_crypto::hash::Keccak256;
 use enigma_tools_t::{
@@ -19,8 +18,8 @@ use enigma_types::{ContractAddress, Hash256, StateKey};
 use epoch_keeper_t::ecall_get_epoch_worker_internal;
 use ocalls_t;
 use rustc_hex::ToHex;
-
 use crate::SIGNING_KEY;
+use crate::auto_ffi::ocall_get_home;
 
 const STATE_KEYS_DIR: &str = "state-keys";
 
@@ -30,7 +29,7 @@ lazy_static! {
 
 /// The state keys root path is guaranteed to exist of the enclave was initialized
 fn get_state_keys_root_path() -> path::PathBuf {
-    let mut path_buf = ocalls_t::get_home_path().unwrap();
+    let mut path_buf = ocalls_t::get_home_path(ocall_get_home).unwrap();
     path_buf.push(STATE_KEYS_DIR);
     path_buf
 }
