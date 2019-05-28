@@ -7,14 +7,7 @@ use web3::types::{Bytes, H256, U256};
 use enigma_types::{EnclaveReturn, traits::SliceCPtr};
 use epoch_u::epoch_types::{encode, EpochState};
 use common_u::errors::EnclaveFailError;
-
-extern "C" {
-    fn ecall_set_worker_params(
-        eid: sgx_enclave_id_t, retval: &mut EnclaveReturn, worker_params_rlp: *const u8, worker_params_rlp_len: usize,
-        seed_in: &[u8; 32], nonce_in: &[u8; 32],
-        rand_out: &mut [u8; 32], nonce_out: &mut [u8; 32], sig_out: &mut [u8; 65],
-    ) -> sgx_status_t;
-}
+use crate::auto_ffi::ecall_set_worker_params;
 
 /// Returns an EpochState object containing the 32 bytes signed random seed and an incremented account nonce.
 /// # Examples
@@ -41,10 +34,10 @@ pub fn set_worker_params(eid: sgx_enclave_id_t, worker_params: &InputWorkerParam
         ecall_set_worker_params(
             eid,
             &mut retval,
-            worker_params_rlp.as_c_ptr() as *const u8,
-            worker_params_rlp.len(),
-            &seed_in,
-            &nonce_in,
+            worker_params_rlp.as_c_ptr(),
+             worker_params_rlp.len(),
+            seed_in.as_ptr() as _,
+            nonce_in.as_ptr() as _,
             &mut rand_out,
             &mut nonce_out,
             &mut sig_out,

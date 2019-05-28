@@ -1,18 +1,10 @@
 use std::{convert::TryInto, mem};
-
 use failure::Error;
 use sgx_types::{sgx_enclave_id_t, sgx_status_t};
-
 use boot_network::keys_provider_http::{StateKeyRequest, StateKeyResponse, StringWrapper};
 use enigma_types::{ContractAddress, EnclaveReturn, traits::SliceCPtr};
 use common_u::errors::EnclaveFailError;
-
-extern "C" {
-    fn ecall_get_enc_state_keys(
-        eid: sgx_enclave_id_t, retval: &mut EnclaveReturn, msg: *const u8, msg_len: usize, addrs: *const u8, addrs_len: usize,
-        sig: &[u8; 65], serialized_ptr: *mut u64, sig_out: &mut [u8; 65],
-    ) -> sgx_status_t;
-}
+use crate::auto_ffi::ecall_get_enc_state_keys;
 
 /// Returns the signed encrypted keys.
 ///
@@ -32,16 +24,17 @@ pub fn get_enc_state_keys(eid: sgx_enclave_id_t, request: StateKeyRequest, epoch
     let epoch_addrs = epoch_addrs.unwrap_or_default();
 
     let msg_bytes: Vec<u8> = request.data.try_into()?;
+    let sig: [u8; 65] = request.sig.try_into()?;
     let status = unsafe {
         ecall_get_enc_state_keys(
             eid,
             &mut retval,
-            msg_bytes.as_c_ptr() as *const u8,
+            msg_bytes.as_c_ptr(),
             msg_bytes.len(),
-            epoch_addrs.as_c_ptr() as *const u8,
+            epoch_addrs.as_c_ptr(),
             mem::size_of_val(epoch_addrs),
-            &request.sig.try_into()?,
-            &mut response_ptr as *mut u64,
+            sig.as_ptr() as _,
+            &mut response_ptr,
             &mut sig_out,
         )
     };

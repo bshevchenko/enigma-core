@@ -42,6 +42,7 @@ mod cli;
 mod common_u;
 mod epoch_u;
 mod esgx;
+mod auto_ffi;
 
 fn main() {
     let opt: Opt = Opt::from_args();
@@ -66,10 +67,7 @@ mod tests {
     use esgx::general::init_enclave_wrapper;
     use log::LevelFilter;
     use sgx_types::{sgx_enclave_id_t, sgx_status_t};
-
-    extern "C" {
-        fn ecall_run_tests(eid: sgx_enclave_id_t) -> sgx_status_t;
-    }
+    use crate::auto_ffi::ecall_run_tests;
 
     pub fn log_to_stdout(level: Option<LevelFilter>) {
         let level = level.unwrap_or_else(|| LevelFilter::max());
