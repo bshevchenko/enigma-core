@@ -14,8 +14,8 @@ use structopt::StructOpt;
 #[logfn(INFO)]
 pub fn start(eid: sgx_enclave_id_t) -> Result<(), Error> {
     let opt = cli::options::Opt::from_args();
-    let mut principal_config = PrincipalConfig::load_config(opt.principal_config.as_str())?;
-    let report_manager = ReportManager::new(principal_config.clone(), eid)?;
+    let principal_config = PrincipalConfig::load_config(opt.principal_config.as_str())?;
+    let mut report_manager = ReportManager::new(principal_config.clone(), eid)?;
     let signing_address = report_manager.get_signing_address()?;
     let mut path = storage_dir(ENCLAVE_DIR)?;
 
@@ -41,11 +41,11 @@ pub fn start(eid: sgx_enclave_id_t) -> Result<(), Error> {
             &principal_config.url,
         )?);
 
-        principal_config.max_epochs = if opt.time_to_live > 0 { Some(opt.time_to_live) } else { None };
+        report_manager.config.max_epochs = if opt.time_to_live > 0 { Some(opt.time_to_live) } else { None };
 
         let gas_limit = 5_999_999;
 
-        let principal: PrincipalManager = PrincipalManager::new(principal_config.clone(), enigma_contract, report_manager)?;
+        let principal: PrincipalManager = PrincipalManager::new(enigma_contract, report_manager)?;
         println!("Connected to the Enigma contract: {:?} with account: {:?}", &contract_address, principal.get_account_address());
 
         // step 2 optional - run miner to simulate blocks

@@ -56,10 +56,8 @@ pub struct ReportManager {
 }
 
 pub struct PrincipalManager {
-    pub config: PrincipalConfig,
     pub contract: Arc<EnigmaContract>,
     pub report_manager: ReportManager,
-    pub eid: sgx_enclave_id_t,
 }
 
 impl ReportManager {
@@ -120,7 +118,7 @@ impl PrincipalManager {
 // General interface of a Sampler == The entity that manages the principal node logic.
 pub trait Sampler {
     /// load with config from file
-    fn new(config: PrincipalConfig, contract: Arc<EnigmaContract>, report_manager: ReportManager) -> Result<Self, Error>
+    fn new(contract: Arc<EnigmaContract>, report_manager: ReportManager) -> Result<Self, Error>
         where Self: Sized;
 
     fn get_signing_address(&self) -> Result<H160, Error>;
@@ -142,10 +140,9 @@ pub trait Sampler {
 }
 
 impl Sampler for PrincipalManager {
-    fn new(config: PrincipalConfig, contract: Arc<EnigmaContract>, report_manager: ReportManager) -> Result<Self, Error> {
-        let eid = report_manager.eid;
+    fn new(contract: Arc<EnigmaContract>, report_manager: ReportManager) -> Result<Self, Error> {
         //        let registration_params = report_manager.get_registration_params()?;
-        Ok(PrincipalManager { config, contract, report_manager, eid })
+        Ok(PrincipalManager {contract, report_manager })
     }
 
     fn get_signing_address(&self) -> Result<H160, Error> {
@@ -158,7 +155,7 @@ impl Sampler for PrincipalManager {
     // noinspection RsBorrowChecker
     fn get_account_address(&self) -> Address { self.contract.account }
 
-    fn get_network_url(&self) -> String { self.config.url.clone() }
+    fn get_network_url(&self) -> String { self.report_manager.config.url.clone() }
 
     fn get_block_number(&self) -> Result<U256, Error> {
         let block_number = match self.get_web3().eth().block_number().wait() {
@@ -179,7 +176,7 @@ impl Sampler for PrincipalManager {
             registration_params.report,
             registration_params.signature,
             gas_limit,
-            self.config.confirmations as usize,
+            self.report_manager.config.confirmations as usize,
         )?;
         Ok(receipt.transaction_hash)
     }
@@ -221,14 +218,14 @@ impl Sampler for PrincipalManager {
         self.verify_identity_or_register(gas_limit)?;
         // get enigma contract
         // Start the WorkerParameterized Web3 log filter
-        let eid: Arc<sgx_enclave_id_t> = Arc::new(self.eid);
+        let eid: Arc<sgx_enclave_id_t> = Arc::new(self.report_manager.eid);
         let epoch_provider = Arc::new(EpochProvider::new(eid, path, self.contract.clone())?);
         if reset_epoch {
             epoch_provider.epoch_state_manager.reset()?;
         }
 
         // Start the JSON-RPC Server
-        let port = self.config.http_port;
+        let port = self.report_manager.config.http_port;
         let server_ep = Arc::clone(&epoch_provider);
         thread::spawn(move || {
             println!("Starting the JSON RPC Server");
@@ -237,15 +234,15 @@ impl Sampler for PrincipalManager {
         });
 
         // watch blocks
-        let polling_interval = self.config.polling_interval;
-        let epoch_size = self.config.epoch_size;
+        let polling_interval = self.report_manager.config.polling_interval;
+        let epoch_size = self.report_manager.config.epoch_size;
         self.contract.watch_blocks(
             epoch_size,
             polling_interval,
             epoch_provider,
             gas_limit,
-            self.config.confirmations as usize,
-            self.config.max_epochs,
+            self.report_manager.config.confirmations as usize,
+            self.report_manager.config.max_epochs,
         );
         Ok(())
     }
@@ -301,8 +298,8 @@ mod test {
     }
 
     pub fn init_no_deploy(eid: u64) -> Result<PrincipalManager, Error> {
-        let mut config = get_config()?;
-        let enclave_manager = ReportManager::new(config.clone(), eid)?;
+        let config = get_config()?;
+        let mut enclave_manager = ReportManager::new(config.clone(), eid)?;
 
         let contract = Arc::new(EnigmaContract::from_deployed(
             &config.enigma_contract_address,
@@ -311,8 +308,8 @@ mod test {
             &config.url,
         )?);
         let _gas_limit = 5_999_999;
-        config.max_epochs = None;
-        let principal: PrincipalManager = PrincipalManager::new(config.clone(), contract, enclave_manager).unwrap();
+        enclave_manager.config.max_epochs = None;
+        let principal: PrincipalManager = PrincipalManager::new(contract, enclave_manager).unwrap();
         Ok(principal)
     }
 
